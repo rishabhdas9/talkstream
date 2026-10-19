@@ -80,7 +80,9 @@ class Settings(BaseSettings):
     low_balance_warn_paise: int = Field(default=100, ge=0)
     min_voice_balance_paise: int = Field(default=1, ge=1)
     billing_tick_seconds: int = Field(default=1, ge=1, le=30)
-    max_recharge_paise: int = Field(default=1_000_000, gt=0)
+    max_recharge_paise: int = Field(default=1_000, gt=0)
+    daily_allowance_paise: int = Field(default=3_000, ge=0)
+    daily_topups: int = Field(default=1, ge=0)
 
     vad_end_silence_ms: int = Field(default=650, gt=0)
     vad_barge_in_ms: int = Field(default=300, gt=0)

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import TransactionKind, UsageSession, User, WalletTransaction
-from app.wallet.service import RechargeAmountError, WalletService
+from app.wallet.service import RechargeAmountError, RechargeLimitError, WalletService
 
 
 async def seed_user(database, email: str = "person@example.com") -> User:
@@ -100,3 +100,46 @@ async def test_incremental_billing_is_idempotent_links_usage_and_exhausts(databa
         )
         assert usage.billed_seconds == 2 and usage.cost_paise == 5
         assert sum(item.amount_paise for item in deductions) == -5
+
+
+async def test_daily_wallet_resets_to_allowance_and_limits_topups(database) -> None:
+    from datetime import timedelta
+
+    from app.models import utc_now
+    from app.wallet.service import day_start
+
+    user = await seed_user(database)
+    wallet = WalletService(database, daily_allowance_paise=3000, daily_topups=1)
+    async with database.session_factory() as session:
+        # Yesterday's top-up and spend never carry over or use up today's top-up.
+        yesterday = day_start(utc_now()) - timedelta(minutes=1)
+        for amount, kind in ((1000, TransactionKind.TOPUP), (-3900, TransactionKind.USAGE)):
+            session.add(
+                WalletTransaction(
+                    user_id=user.id, amount_paise=amount, kind=kind, created_at=yesterday
+                )
+            )
+        await session.commit()
+    assert await wallet.balance(user.id) == 3000
+    assert await wallet.topups_left(user.id) == 1
+    assert await wallet.recent_transactions(user.id) == []
+
+    _, balance = await wallet.recharge(user_id=user.id, amount_paise=1000, max_amount_paise=1000)
+    assert balance == 4000 and await wallet.topups_left(user.id) == 0
+    with pytest.raises(RechargeLimitError):
+        await wallet.recharge(user_id=user.id, amount_paise=1, max_amount_paise=1000)
+    assert await wallet.balance(user.id) == 4000
+
+
+def test_day_start_is_kolkata_midnight() -> None:
+    from datetime import UTC, datetime
+
+    from app.wallet.service import day_start
+
+    # 23:59:59 IST on 31 October is 18:29:59 UTC; that day began at 18:30 UTC on 30 October.
+    assert day_start(datetime(2026, 10, 31, 18, 29, 59, tzinfo=UTC)) == datetime(
+        2026, 10, 30, 18, 30, tzinfo=UTC
+    )
+    assert day_start(datetime(2026, 10, 31, 18, 30, tzinfo=UTC)) == datetime(
+        2026, 10, 31, 18, 30, tzinfo=UTC
+    )

@@ -51,7 +51,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         resolved_settings.database_url,
         echo=resolved_settings.database_echo,
     )
-    wallet_service = WalletService(database)
+    wallet_service = WalletService(
+        database,
+        daily_allowance_paise=resolved_settings.daily_allowance_paise,
+        daily_topups=resolved_settings.daily_topups,
+    )
     addon_registry = build_addon_registry(resolved_settings, database)
 
     @asynccontextmanager

@@ -21,6 +21,10 @@ export type WalletTransaction = {
 export type WalletResponse = {
   balance_paise: number;
   price_per_minute_paise: number;
+  daily_allowance_paise: number;
+  max_recharge_paise: number;
+  // null means top-ups are not limited per day.
+  topups_left_today: number | null;
   recent_transactions: WalletTransaction[];
 };
 

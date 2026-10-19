@@ -22,19 +22,22 @@ async def test_wallet_recharge_balance_and_transactions(api_client) -> None:
     client, sender = api_client
     headers = await authenticate(client, sender)
 
-    empty = await client.get("/wallet", headers=headers)
+    fresh = (await client.get("/wallet", headers=headers)).json()
     recharged = await client.post(
         "/wallet/recharge",
         headers=headers,
         json={"amount_paise": 500},
     )
-    wallet = await client.get("/wallet", headers=headers)
+    second = await client.post("/wallet/recharge", headers=headers, json={"amount_paise": 100})
+    wallet = (await client.get("/wallet", headers=headers)).json()
 
-    assert empty.json()["balance_paise"] == 0
+    assert fresh["balance_paise"] == 3000 and fresh["daily_allowance_paise"] == 3000
+    assert fresh["max_recharge_paise"] == 1000 and fresh["topups_left_today"] == 1
     assert recharged.status_code == 200
-    assert recharged.json()["balance_paise"] == 500
-    assert wallet.json()["balance_paise"] == 500
-    assert wallet.json()["recent_transactions"][0]["amount_paise"] == 500
+    assert recharged.json()["balance_paise"] == 3500
+    assert second.status_code == 429
+    assert wallet["balance_paise"] == 3500 and wallet["topups_left_today"] == 0
+    assert [item["amount_paise"] for item in wallet["recent_transactions"]] == [500]
 
 
 async def test_wallet_recharge_rejects_amount_above_limit(api_client) -> None:

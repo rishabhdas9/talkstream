@@ -10,7 +10,7 @@ from app.wallet.schemas import (
     WalletResponse,
     WalletTransactionResponse,
 )
-from app.wallet.service import RechargeAmountError
+from app.wallet.service import RechargeAmountError, RechargeLimitError
 
 logger = logging.getLogger("talkstream.wallet")
 router = APIRouter(prefix="/wallet", tags=["wallet"])
@@ -27,6 +27,9 @@ async def get_wallet(
     return WalletResponse(
         balance_paise=balance,
         price_per_minute_paise=settings.price_per_minute_paise,
+        daily_allowance_paise=wallet.daily_allowance_paise,
+        max_recharge_paise=settings.max_recharge_paise,
+        topups_left_today=await wallet.topups_left(user.id),
         recent_transactions=[
             WalletTransactionResponse.model_validate(item) for item in transactions
         ],
@@ -50,6 +53,8 @@ async def recharge_wallet(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
+    except RechargeLimitError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     logger.info(
         "mock_recharge user_id=%s amount_paise=%s balance_paise=%s",
         user.id,

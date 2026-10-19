@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import Database
-from app.models import TransactionKind, UsageSession, WalletTransaction
+from app.models import TransactionKind, UsageSession, WalletTransaction, utc_now
 
 
 class WalletError(RuntimeError):
@@ -16,6 +17,16 @@ class WalletError(RuntimeError):
 
 class RechargeAmountError(WalletError):
     pass
+
+
+class RechargeLimitError(WalletError):
+    pass
+
+
+def day_start(now: datetime) -> datetime:
+    """Midnight in Kolkata, as UTC: the wallet's daily reset."""
+    local = now.astimezone(ZoneInfo("Asia/Kolkata"))
+    return local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
 
 
 @dataclass(frozen=True)
@@ -28,8 +39,19 @@ class SessionBillingResult:
 
 
 class WalletService:
-    def __init__(self, database: Database) -> None:
+    """Daily wallet: every Kolkata day starts at daily_allowance_paise plus that
+    day's ledger rows; earlier days' balances never carry over."""
+
+    def __init__(
+        self,
+        database: Database,
+        *,
+        daily_allowance_paise: int = 0,
+        daily_topups: int | None = None,
+    ) -> None:
         self._database = database
+        self.daily_allowance_paise = daily_allowance_paise
+        self.daily_topups = daily_topups
 
     async def balance(self, user_id: str) -> int:
         async with self._database.session_factory() as session:
@@ -54,7 +76,10 @@ class WalletService:
                     WalletTransaction.usage_session_id.label("usage_session_id"),
                     func.max(WalletTransaction.created_at).label("created_at"),
                 )
-                .where(WalletTransaction.user_id == user_id)
+                .where(
+                    WalletTransaction.user_id == user_id,
+                    WalletTransaction.created_at >= day_start(utc_now()),
+                )
                 .group_by(group_key)
                 .order_by(func.max(WalletTransaction.created_at).desc())
                 .limit(limit)
@@ -72,6 +97,8 @@ class WalletService:
             raise RechargeAmountError(f"amount_paise must be between 1 and {max_amount_paise}")
         async with self._database.session_factory() as session:
             await session.execute(text("BEGIN IMMEDIATE"))
+            if await self._topups_left(session, user_id) == 0:
+                raise RechargeLimitError("Today's top-up has already been used")
             transaction = WalletTransaction(
                 user_id=user_id,
                 amount_paise=amount_paise,
@@ -151,11 +178,27 @@ class WalletService:
                 exhausted=balance_after <= 0 and outstanding > 0,
             )
 
-    @staticmethod
-    async def _balance_in_session(session: AsyncSession, user_id: str) -> int:
-        result = await session.execute(
-            select(func.coalesce(func.sum(WalletTransaction.amount_paise), 0)).where(
-                WalletTransaction.user_id == user_id
+    async def topups_left(self, user_id: str) -> int | None:
+        async with self._database.session_factory() as session:
+            return await self._topups_left(session, user_id)
+
+    async def _topups_left(self, session: AsyncSession, user_id: str) -> int | None:
+        if self.daily_topups is None:
+            return None
+        used = await session.scalar(
+            select(func.count()).where(
+                WalletTransaction.user_id == user_id,
+                WalletTransaction.kind == TransactionKind.TOPUP,
+                WalletTransaction.created_at >= day_start(utc_now()),
             )
         )
-        return int(result.scalar_one())
+        return max(0, self.daily_topups - int(used or 0))
+
+    async def _balance_in_session(self, session: AsyncSession, user_id: str) -> int:
+        result = await session.execute(
+            select(func.coalesce(func.sum(WalletTransaction.amount_paise), 0)).where(
+                WalletTransaction.user_id == user_id,
+                WalletTransaction.created_at >= day_start(utc_now()),
+            )
+        )
+        return self.daily_allowance_paise + int(result.scalar_one())

@@ -55,6 +55,7 @@ def build_app(tmp_path: Path, *, balance_paise: int, session_factory=None, confi
         exa_api_key=None,
         resend_api_key=None,
         min_voice_balance_paise=1,
+        daily_allowance_paise=balance_paise,  # the daily wallet is funded by its allowance
         rate_card_file=rate_file if configure_rates else None,
     )
     app = create_app(settings)
@@ -64,20 +65,6 @@ def build_app(tmp_path: Path, *, balance_paise: int, session_factory=None, confi
             "INSERT INTO users (id, email, created_at, is_verified) VALUES (?, ?, ?, 1)",
             (USER_ID, EMAIL, "2026-01-01 00:00:00"),
         )
-        if balance_paise:
-            connection.execute(
-                """
-                INSERT INTO wallet_transactions
-                    (id, user_id, amount_paise, kind, usage_session_id, created_at)
-                VALUES (?, ?, ?, 'topup', NULL, ?)
-                """,
-                (
-                    "00000000-0000-0000-0000-000000000002",
-                    USER_ID,
-                    balance_paise,
-                    "2026-01-01 00:00:00",
-                ),
-            )
     if session_factory is not None:
         app.state.voice_session_factory = session_factory
     token = encode_access_token(

@@ -66,9 +66,17 @@ export function WalletPage({
 
   const customPaise =
     Number.parseInt(customAmount, 10) > 0 ? Number.parseInt(customAmount, 10) * 100 : 0;
+  const maxTopup = wallet?.max_recharge_paise ?? 0;
+  const topupUsed = wallet?.topups_left_today === 0;
+  const canTopup = wallet != null && !topupUsed && !busy;
+  const presets = [Math.round(maxTopup / 2), maxTopup].filter((amount, index, all) => amount > 0 && all.indexOf(amount) === index);
 
   async function topup(amountPaise: number) {
-    if (!amountPaise || amountPaise <= 0 || busy) return;
+    if (!amountPaise || amountPaise <= 0 || !canTopup) return;
+    if (amountPaise > maxTopup) {
+      pushToast(`A top-up can be at most ${formatRupees(maxTopup)}`);
+      return;
+    }
     setBusy(true);
     try {
       await rechargeWallet(token, amountPaise);
@@ -139,6 +147,11 @@ export function WalletPage({
           <div style={{ fontSize: 12.5, color: "#6B6B66", marginTop: 8 }}>
             {formatRupees(pricePerMinute)}/min · billed per second
           </div>
+          {wallet != null && wallet.daily_allowance_paise > 0 && (
+            <div style={{ fontSize: 12.5, color: "#6B6B66", marginTop: 4 }}>
+              Resets to {formatRupees(wallet.daily_allowance_paise)} every day at midnight IST
+            </div>
+          )}
           <div style={{ fontSize: 12.5, color: "#3A57D4", fontWeight: 500, marginTop: 4 }}>
             ≈ {Math.floor(balance / pricePerMinute)} min of talk time left
           </div>
@@ -164,15 +177,11 @@ export function WalletPage({
             Add money
           </div>
           <div className="wallet-presets" style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button type="button" className="hovBorderDark" style={presetStyle} onClick={() => void topup(5000)}>
-              ₹50
-            </button>
-            <button type="button" className="hovBorderDark" style={presetStyle} onClick={() => void topup(10000)}>
-              ₹100
-            </button>
-            <button type="button" className="hovBorderDark" style={presetStyle} onClick={() => void topup(50000)}>
-              ₹500
-            </button>
+            {presets.map((amount) => (
+              <button key={amount} type="button" className="hovBorderDark" style={{ ...presetStyle, opacity: canTopup ? 1 : 0.5 }} disabled={!canTopup} onClick={() => void topup(amount)}>
+                {formatRupees(amount)}
+              </button>
+            ))}
           </div>
           <div className="wallet-custom-amount" style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <div
@@ -195,7 +204,9 @@ export function WalletPage({
                 onKeyDown={(event) => {
                   if (event.key === "Enter") void topup(customPaise);
                 }}
-                placeholder="Custom amount"
+                placeholder={maxTopup ? `Up to ${formatRupees(maxTopup)}` : "Custom amount"}
+                aria-label="Top-up amount in rupees"
+                disabled={!canTopup}
                 inputMode="numeric"
                 style={{
                   flex: 1,
@@ -210,6 +221,7 @@ export function WalletPage({
             <button
               type="button"
               onClick={() => void topup(customPaise)}
+              disabled={!canTopup}
               className="hovDark"
               style={{
                 border: "none",
@@ -220,14 +232,18 @@ export function WalletPage({
                 fontWeight: 500,
                 padding: "9px 20px",
                 flexShrink: 0,
-                opacity: busy ? 0.7 : 1,
+                opacity: canTopup ? 1 : 0.5,
               }}
             >
               {customPaise ? `Add ${formatRupees(customPaise)}` : "Add money"}
             </button>
           </div>
           <div style={{ fontSize: 11.5, color: "#A6A6A0", marginTop: 12 }}>
-            Demo wallet — credits instantly, no payment gateway.
+            {topupUsed
+              ? "You've used today's top-up. Your wallet resets at midnight IST."
+              : wallet?.topups_left_today === 1
+                ? "One top-up per day. Demo wallet: no payment needed."
+                : "Demo wallet: credits instantly, no payment needed."}
           </div>
         </div>
       </div>

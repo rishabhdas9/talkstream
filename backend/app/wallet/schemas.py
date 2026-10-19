@@ -24,6 +24,10 @@ class WalletTransactionResponse(BaseModel):
 class WalletResponse(BaseModel):
     balance_paise: int
     price_per_minute_paise: int
+    daily_allowance_paise: int
+    max_recharge_paise: int
+    # None means top-ups are not limited per day.
+    topups_left_today: int | None
     recent_transactions: list[WalletTransactionResponse]
 
 

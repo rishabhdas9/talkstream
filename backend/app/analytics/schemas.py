@@ -20,6 +20,7 @@ class UtcDatetimeModel(BaseModel):
 
 class AnalyticsTotals(BaseModel):
     sessions: int
+    users: int
     billed_seconds: int
     cost_paise: int
     avg_session_seconds: float | None

@@ -59,12 +59,12 @@ export async function requestVoiceTicket(token: string): Promise<string> {
   return response.ticket;
 }
 
-export async function getCurrentUser(token: string): Promise<{ id: string }> {
-  const user = await authorizedJson<{ id: unknown }>("/auth/me", token);
+export async function getCurrentUser(token: string): Promise<{ id: string; isAdmin: boolean }> {
+  const user = await authorizedJson<{ id: unknown; is_admin?: unknown }>("/auth/me", token);
   if (typeof user.id !== "string" || !user.id.trim() || [...user.id].length > 128 || /\p{Surrogate}/u.test(user.id)) {
     throw new Error("Invalid authenticated user identity");
   }
-  return { id: user.id };
+  return { id: user.id, isAdmin: user.is_admin === true };
 }
 
 async function authorizedJson<T>(

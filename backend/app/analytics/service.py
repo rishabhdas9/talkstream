@@ -67,7 +67,8 @@ class AnalyticsService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def overview(self, user_id: str, window: AnalyticsWindow) -> AnalyticsResponse:
+    # user_id=None reads every user's calls (administrator view).
+    async def overview(self, user_id: str | None, window: AnalyticsWindow) -> AnalyticsResponse:
         span, bucket_size = _WINDOWS[window]
         now = datetime.now(UTC)
         window_start = self._align(now - span, bucket_size)
@@ -90,6 +91,7 @@ class AnalyticsService:
             bucket_seconds=int(bucket_size.total_seconds()),
             totals=AnalyticsTotals(
                 sessions=len(sessions),
+                users=len({item.user_id for item in sessions}),
                 billed_seconds=sum(item.billed_seconds for item in sessions),
                 cost_paise=sum(item.cost_paise for item in sessions),
                 avg_session_seconds=(
@@ -105,12 +107,9 @@ class AnalyticsService:
             latency=self._rollup(valid, excluded),
         )
 
-    async def session_detail(self, user_id: str, session_id: str) -> SessionDetailResponse:
+    async def session_detail(self, user_id: str | None, session_id: str) -> SessionDetailResponse:
         result = await self._session.execute(
-            select(UsageSession).where(
-                UsageSession.id == session_id,
-                UsageSession.user_id == user_id,
-            )
+            self._owned(select(UsageSession).where(UsageSession.id == session_id), user_id)
         )
         usage = result.scalar_one_or_none()
         if usage is None:
@@ -138,24 +137,32 @@ class AnalyticsService:
             ],
         )
 
-    async def _sessions_in_window(self, user_id: str, window_start: datetime) -> list[UsageSession]:
+    @staticmethod
+    def _owned(query, user_id: str | None):
+        return query if user_id is None else query.where(UsageSession.user_id == user_id)
+
+    async def _sessions_in_window(
+        self, user_id: str | None, window_start: datetime
+    ) -> list[UsageSession]:
         result = await self._session.execute(
-            select(UsageSession)
-            .where(
-                UsageSession.user_id == user_id,
-                UsageSession.started_at >= window_start,
+            self._owned(
+                select(UsageSession)
+                .where(UsageSession.started_at >= window_start)
+                .order_by(UsageSession.started_at.desc()),
+                user_id,
             )
-            .order_by(UsageSession.started_at.desc())
         )
         return list(result.scalars())
 
-    async def _metrics_in_window(self, user_id: str, window_start: datetime) -> list[TurnMetric]:
+    async def _metrics_in_window(
+        self, user_id: str | None, window_start: datetime
+    ) -> list[TurnMetric]:
         result = await self._session.execute(
-            select(TurnMetric)
-            .join(UsageSession, TurnMetric.usage_session_id == UsageSession.id)
-            .where(
-                UsageSession.user_id == user_id,
-                UsageSession.started_at >= window_start,
+            self._owned(
+                select(TurnMetric)
+                .join(UsageSession, TurnMetric.usage_session_id == UsageSession.id)
+                .where(UsageSession.started_at >= window_start),
+                user_id,
             )
         )
         return list(result.scalars())

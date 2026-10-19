@@ -27,6 +27,7 @@ class CurrentUserResponse(BaseModel):
     id: str
     email: EmailStr
     is_verified: bool
+    is_admin: bool = False
 
 
 class VoiceTicketResponse(BaseModel):

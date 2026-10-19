@@ -4,9 +4,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func, select, text
 
+from app.analytics.schemas import AnalyticsResponse, AnalyticsWindow, SessionDetailResponse
+from app.analytics.service import AnalyticsService, SessionNotFoundError
 from app.auth.dependencies import AdministratorDependency, SessionDependency
 from app.models import UsageSession
 
@@ -210,3 +212,22 @@ async def operations_events(
         "policy_counts": [dict(row) for row in counts.mappings()],
         "policy_recent": [{**row, "allowed": bool(row["allowed"])} for row in recent.mappings()],
     }
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+async def operations_analytics(
+    _: AdministratorDependency,
+    session: SessionDependency,
+    window: Annotated[AnalyticsWindow, Query()] = "day",
+) -> AnalyticsResponse:
+    return await AnalyticsService(session).overview(None, window)
+
+
+@router.get("/analytics/sessions/{session_id}", response_model=SessionDetailResponse)
+async def operations_session_detail(
+    session_id: str, _: AdministratorDependency, session: SessionDependency
+) -> SessionDetailResponse:
+    try:
+        return await AnalyticsService(session).session_detail(None, session_id)
+    except SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Session not found") from exc

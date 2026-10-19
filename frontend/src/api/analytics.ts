@@ -10,6 +10,7 @@ export type AnalyticsWindow = "hour" | "day" | "week";
 
 export type AnalyticsTotals = {
   sessions: number;
+  users: number;
   billed_seconds: number;
   cost_paise: number;
   avg_session_seconds: number | null;
@@ -86,19 +87,24 @@ async function getJson<T>(path: string, token: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+// allUsers reads the administrator-only copy that spans every user.
+const analyticsPath = (allUsers: boolean) => (allUsers ? "/operations/analytics" : "/analytics");
+
 export async function getAnalytics(
   token: string,
   window: AnalyticsWindow,
+  allUsers = false,
 ): Promise<AnalyticsResponse> {
-  return getJson<AnalyticsResponse>(`/analytics?window=${window}`, token);
+  return getJson<AnalyticsResponse>(`${analyticsPath(allUsers)}?window=${window}`, token);
 }
 
 export async function getSessionDetail(
   token: string,
   sessionId: string,
+  allUsers = false,
 ): Promise<SessionDetailResponse> {
   return getJson<SessionDetailResponse>(
-    `/analytics/sessions/${encodeURIComponent(sessionId)}`,
+    `${analyticsPath(allUsers)}/sessions/${encodeURIComponent(sessionId)}`,
     token,
   );
 }

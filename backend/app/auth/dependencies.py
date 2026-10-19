@@ -109,11 +109,15 @@ async def get_current_user(
 CurrentUserDependency = Annotated[User, Depends(get_current_user)]
 
 
-def get_administrator(user: CurrentUserDependency, settings: SettingsDependency) -> User:
+def is_administrator(user: User, settings: Settings) -> bool:
     allowed = {
         email.strip().casefold() for email in settings.admin_emails.split(",") if email.strip()
     }
-    if user.email.casefold() not in allowed:
+    return user.email.casefold() in allowed
+
+
+def get_administrator(user: CurrentUserDependency, settings: SettingsDependency) -> User:
+    if not is_administrator(user, settings):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required"
         )

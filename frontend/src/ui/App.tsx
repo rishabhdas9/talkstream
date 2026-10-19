@@ -1,6 +1,6 @@
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { getWallet, type WalletResponse } from "../api/auth";
+import { getCurrentUser, getWallet, type WalletResponse } from "../api/auth";
 import { getCapabilities } from "../api/capabilities";
 import {
   AUTHENTICATION_EXPIRED_MESSAGE,
@@ -20,7 +20,9 @@ import { WalletPage } from "./pages/WalletPage";
 import "./tokens.css";
 import "./layout.css";
 
-type CorePage = "call" | "wallet" | "usage" | "guardrails" | "admin";
+type CorePage = "call" | "wallet" | "usage" | "platform" | "guardrails" | "admin";
+
+const ADMIN_PAGES: Page[] = ["platform", "guardrails", "admin"];
 type Page = CorePage | string;
 
 type Toast = { id: number; message: string };
@@ -43,6 +45,13 @@ const NAV_ICONS: Record<CorePage, ReactElement> = {
       <line x1="3" y1="13" x2="3" y2="8" />
       <line x1="8" y1="13" x2="8" y2="3.5" />
       <line x1="13" y1="13" x2="13" y2="10" />
+    </svg>
+  ),
+  platform: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
+      <circle cx="6" cy="5.5" r="2.5" />
+      <path d="M1.5 13.5 C1.5 10.8 3.5 9.5 6 9.5 C8.5 9.5 10.5 10.8 10.5 13.5" />
+      <path d="M11 3.2 A2.5 2.5 0 0 1 11 7.8 M12.5 9.8 C13.8 10.4 14.5 11.7 14.5 13.5" />
     </svg>
   ),
   guardrails: (
@@ -70,6 +79,7 @@ export function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [enabledAddons, setEnabledAddons] = useState<FrontendAddon[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   // Unauthenticated visitors land on the marketing Home screen at "/";
   // the login screen lives at "/login" so the browser back button works.
   const [landing, setLanding] = useState(() => window.location.pathname !== "/login");
@@ -142,6 +152,23 @@ export function App() {
   useEffect(() => {
     refreshWallet();
   }, [refreshWallet]);
+
+  // Hides admin navigation only; the server still enforces access on every admin route.
+  useEffect(() => {
+    setIsAdmin(false);
+    if (!token) return;
+    let active = true;
+    getCurrentUser(token)
+      .then((user) => { if (active) setIsAdmin(user.isAdmin); })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!isAdmin && ADMIN_PAGES.includes(page)) setPage("call");
+  }, [isAdmin, page]);
 
   useEffect(() => {
     let active = true;
@@ -290,7 +317,7 @@ export function App() {
     <div className="app-shell">
       <header className="mobile-app-header">
         <span className="mobile-app-brand">Talkstream<span>AI</span></span>
-        <span className="mobile-app-page">{page === "admin" ? "Operations" : selectedAddon?.label ?? page.charAt(0).toUpperCase() + page.slice(1)}</span>
+        <span className="mobile-app-page">{page === "admin" ? "Operations" : page === "platform" ? "All users" : selectedAddon?.label ?? page.charAt(0).toUpperCase() + page.slice(1)}</span>
         <button type="button" className="mobile-menu-button" aria-expanded={mobileNavOpen} aria-controls="app-sidebar" onClick={() => { setNavCollapsed(false); setMobileNavOpen(true); }}>Menu</button>
       </header>
       {mobileNavOpen && <button type="button" className="mobile-nav-scrim" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
@@ -371,7 +398,7 @@ export function App() {
           {navItem("wallet", "Wallet", NAV_ICONS.wallet)}
           {navItem("usage", "Usage", NAV_ICONS.usage)}
           {enabledAddons.map((addon) => navItem(addon.id, addon.label, addon.icon))}
-          {!navCollapsed ? (
+          {isAdmin && (!navCollapsed ? (
             <div
               style={{
                 fontSize: 10.5,
@@ -386,9 +413,10 @@ export function App() {
             </div>
           ) : (
             <div style={{ height: 1, background: "#E5E5E1", margin: "14px 8px 8px" }} />
-          )}
-          {navItem("guardrails", "Guardrails", NAV_ICONS.guardrails)}
-          {navItem("admin", "Admin", NAV_ICONS.admin)}
+          ))}
+          {isAdmin && navItem("platform", "All users", NAV_ICONS.platform)}
+          {isAdmin && navItem("guardrails", "Guardrails", NAV_ICONS.guardrails)}
+          {isAdmin && navItem("admin", "Admin", NAV_ICONS.admin)}
         </nav>
         <div style={{ flex: 1 }} />
         <div
@@ -495,8 +523,10 @@ export function App() {
             openSession={openSessionInUsage}
             onAuthenticationExpired={handleAuthenticationExpired}
           />
-        ) : page === "usage" ? (
+        ) : page === "usage" || page === "platform" ? (
           <UsagePage
+            key={page}
+            allUsers={page === "platform"}
             token={token}
             openSessionId={pendingSessionId}
             onSessionOpened={() => setPendingSessionId(null)}

@@ -2,7 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from app.auth.dependencies import CurrentUserDependency, get_auth_service
+from app.auth.dependencies import (
+    CurrentUserDependency,
+    SettingsDependency,
+    get_auth_service,
+    is_administrator,
+)
 from app.auth.email import OtpDeliveryError
 from app.auth.limits import OtpRateLimited
 from app.auth.schemas import (
@@ -15,7 +20,6 @@ from app.auth.schemas import (
 )
 from app.auth.service import AuthService, InvalidOtpError
 from app.auth.tickets import TicketService
-from app.models import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
@@ -76,8 +80,10 @@ async def dev_login(request: Request, service: AuthServiceDependency) -> TokenRe
 
 
 @router.get("/me", response_model=CurrentUserResponse)
-async def me(user: CurrentUserDependency) -> User:
-    return user
+async def me(user: CurrentUserDependency, settings: SettingsDependency) -> CurrentUserResponse:
+    response = CurrentUserResponse.model_validate(user)
+    response.is_admin = is_administrator(user, settings)
+    return response
 
 
 @router.post("/voice-ticket", response_model=VoiceTicketResponse)

@@ -9,7 +9,13 @@ from test_admin_authorization import login
 from app.models import TurnMetric
 
 ADMIN = "owner@example.com"
-PATHS = ["/operations/status", "/operations/policy", "/operations/events"]
+PATHS = [
+    "/operations/status",
+    "/operations/policy",
+    "/operations/events",
+    "/operations/analytics",
+    "/operations/analytics/sessions/any",
+]
 
 
 @pytest.fixture
@@ -220,3 +226,33 @@ async def test_wallet_today_counts_orm_sessions_after_kolkata_midnight(operation
         await session.commit()
     status = (await client.get("/operations/status", headers=admin)).json()
     assert status["spend"]["wallet_today_paise"] == 11
+
+
+async def test_admin_analytics_spans_every_user(operations):
+    from app.models import UsageSession, User
+
+    client, app, admin, regular = operations
+    async with app.state.database.session_factory() as session:
+        for email, paise in (("a@example.com", 5), ("b@example.com", 9)):
+            user = User(email=email, is_verified=True)
+            session.add(user)
+            await session.flush()
+            usage = UsageSession(user_id=user.id, billed_seconds=30, cost_paise=paise)
+            session.add(usage)
+            await session.flush()
+            session.add(TurnMetric(usage_session_id=usage.id, turn_index=0, tts_ttfb_ms=200.0))
+        await session.commit()
+        other_session_id = usage.id
+
+    totals = (await client.get("/operations/analytics", headers=admin)).json()["totals"]
+    assert totals["sessions"] == 2 and totals["users"] == 2 and totals["cost_paise"] == 14
+    detail = await client.get(f"/operations/analytics/sessions/{other_session_id}", headers=admin)
+    assert detail.status_code == 200 and detail.json()["turns"][0]["stages"]["tts_ttfb_ms"] == 200
+    missing = await client.get("/operations/analytics/sessions/missing", headers=admin)
+    assert missing.status_code == 404
+
+    # A regular user still sees only their own (empty) usage, and is told they are not an admin.
+    own = (await client.get("/analytics", headers=regular)).json()["totals"]
+    assert own["sessions"] == 0 and own["users"] == 0
+    assert (await client.get("/auth/me", headers=regular)).json()["is_admin"] is False
+    assert (await client.get("/auth/me", headers=admin)).json()["is_admin"] is True

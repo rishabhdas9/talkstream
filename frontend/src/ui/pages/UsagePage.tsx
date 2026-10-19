@@ -22,6 +22,7 @@ type UsagePageProps = {
   onSessionOpened: () => void;
   pushToast: (message: string) => void;
   onAuthenticationExpired: () => void;
+  allUsers?: boolean;
 };
 
 const REASON_STYLE: Record<string, [string, string, string]> = {
@@ -73,6 +74,7 @@ export function UsagePage({
   onSessionOpened,
   pushToast,
   onAuthenticationExpired,
+  allUsers = false,
 }: UsagePageProps) {
   const [window_, setWindow] = useState<AnalyticsWindow>("day");
   const [data, setData] = useState<AnalyticsResponse | null>(null);
@@ -84,7 +86,7 @@ export function UsagePage({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getAnalytics(token, window_)
+    getAnalytics(token, window_, allUsers)
       .then((response) => {
         if (!cancelled) setData(response);
       })
@@ -98,18 +100,18 @@ export function UsagePage({
     return () => {
       cancelled = true;
     };
-  }, [token, window_, pushToast, onAuthenticationExpired]);
+  }, [token, window_, allUsers, pushToast, onAuthenticationExpired]);
 
   useEffect(() => {
     if (!openSessionId) return;
-    getSessionDetail(token, openSessionId)
+    getSessionDetail(token, openSessionId, allUsers)
       .then(setDetail)
       .catch((error: unknown) => {
         if (isAuthenticationExpiredError(error)) onAuthenticationExpired();
         else pushToast(String(error));
       })
       .finally(onSessionOpened);
-  }, [token, openSessionId, onSessionOpened, pushToast, onAuthenticationExpired]);
+  }, [token, openSessionId, allUsers, onSessionOpened, pushToast, onAuthenticationExpired]);
 
   const seg = (value: AnalyticsWindow, label: string) => (
     <button
@@ -181,7 +183,10 @@ export function UsagePage({
   const cards: Array<[string, string]> = [
     ["Minutes used", `${totalMinutes.toFixed(1)} min`],
     ["Wallet charges (mock)", formatRupees(data.totals.cost_paise)],
-    ["Calls", String(data.totals.sessions)],
+    [
+      "Calls",
+      allUsers ? `${data.totals.sessions} · ${data.totals.users} users` : String(data.totals.sessions),
+    ],
     [
       "Avg call length",
       data.totals.avg_session_seconds == null
@@ -217,7 +222,7 @@ export function UsagePage({
         }}
       >
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>
-          Usage
+          {allUsers ? "All users" : "Usage"}
         </h1>
         <div
           style={{
@@ -607,7 +612,7 @@ export function UsagePage({
                   key={sessionRow.id}
                   className="hovRow"
                   onClick={() =>
-                    void getSessionDetail(token, sessionRow.id)
+                    void getSessionDetail(token, sessionRow.id, allUsers)
                       .then(setDetail)
                       .catch((error: unknown) => pushToast(String(error)))
                   }

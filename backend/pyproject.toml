@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "talkstream-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Talkstream voice agent"
+requires-python = ">=3.11"
+dependencies = [
+    "aiosqlite>=0.20,<1",
+    "cryptography>=50.0.2,<51",
+    "email-validator>=2.2,<3",
+    "fastapi>=0.115,<1",
+    "greenlet>=3.1,<4",
+    "httpx>=0.28,<1",
+    "langchain>=1.0,<2",
+    "langchain-openai>=1.0,<2",
+    "langgraph>=1.0,<2",
+    "numpy>=2.0,<3",
+    "onnxruntime>=1.20,<2",
+    "pypdf>=5,<7",
+    "PyJWT>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+    "python-multipart>=0.0.20,<1",
+    "sqlalchemy>=2.0,<2.2",
+    "uvicorn[standard]>=0.34,<1",
+    "websockets>=15,<17",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28,<1",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<2",
+    "pytest-socket>=0.7,<1",
+    "ruff>=0.9,<1",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app" = ["sql/*.sql"]
+"app.policy" = ["*.json"]
+"app.voice" = ["assets/*.md", "assets/*.onnx"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ASYNC", "B", "E", "F", "I", "SIM", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["--disable-socket", "--allow-unix-socket"]
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

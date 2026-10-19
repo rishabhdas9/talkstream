@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+node_modules
+dist
+tests
+artifacts
+particles.js-master

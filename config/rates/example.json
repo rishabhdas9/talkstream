@@ -1,0 +1,28 @@
+{
+  "version": "synthetic-example-v1",
+  "captured_at": "2026-10-18T00:00:00Z",
+  "valid_until": "2026-11-18T00:00:00Z",
+  "source": "https://example.com/synthetic-fixture-not-a-vendor-quote",
+  "currency": "INR",
+  "fx_micro_inr": 1000000,
+  "qualified": false,
+  "taxes_and_fees": {
+    "numerator": 1,
+    "denominator": 1,
+    "note": "Synthetic example only. Replace with an account-confirmed all-inclusive cash/credit ratio and qualify explicitly before live use."
+  },
+  "unit_prices": {
+    "fixture-provider": {
+      "fixture-model": {
+        "input_tokens": {
+          "amount_micros": 1000000,
+          "per_units": 1000000
+        },
+        "output_tokens": {
+          "amount_micros": 2000000,
+          "per_units": 1000000
+        }
+      }
+    }
+  }
+}

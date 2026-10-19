@@ -1,0 +1,21 @@
+[Unit]
+Description=Talkstream FastAPI backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=talkstream
+WorkingDirectory=/opt/talkstream/backend
+Environment=APP_ENV=production
+# PUBLIC_ORIGIN, CORS_ORIGINS (that same single origin), ADMIN_EMAILS, RESEND_FROM, the
+# *_FILE secret paths, POLICY_FILE, RATE_CARD_FILE and RECOVERY_JOURNAL_FILE live here.
+EnvironmentFile=/etc/talkstream/talkstream.env
+ExecStart=/opt/talkstream/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=3
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,333 @@
+/* Design tokens and keyframes exported from the Talkstream design
+   (Sarvam Voice Agent.dc.html). Components use inline styles matching the
+   export; this file carries the base reset and animations. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f7f7f5;
+}
+
+body {
+  font-family: "Inter", -apple-system, "Segoe UI", sans-serif;
+  color: #111110;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: #4a6cf7;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #3a57d4;
+  text-decoration: underline;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  box-sizing: border-box;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #a6a6a0;
+}
+
+@keyframes orbBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.055);
+  }
+}
+
+@keyframes ringGrow {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.05);
+    opacity: 0;
+  }
+}
+
+@keyframes spinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbTalk {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  18% {
+    transform: scale(1.075);
+  }
+  38% {
+    transform: scale(0.995);
+  }
+  58% {
+    transform: scale(1.05);
+  }
+  80% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -420px 0;
+  }
+  100% {
+    background-position: 420px 0;
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blinkDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes waveListen {
+  0%,
+  100% {
+    transform: scaleY(0.22);
+  }
+  50% {
+    transform: scaleY(0.6);
+  }
+}
+
+@keyframes waveThink {
+  0%,
+  100% {
+    transform: scaleY(0.1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(0.32);
+    opacity: 1;
+  }
+}
+
+@keyframes waveSpeak {
+  0%,
+  100% {
+    transform: scaleY(0.28);
+  }
+  22% {
+    transform: scaleY(1);
+  }
+  46% {
+    transform: scaleY(0.42);
+  }
+  70% {
+    transform: scaleY(0.88);
+  }
+}
+
+@keyframes waveMuted {
+  0%,
+  100% {
+    transform: scaleY(0.08);
+  }
+  50% {
+    transform: scaleY(0.13);
+  }
+}
+
+@keyframes blobDrift1 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(70px, 45px);
+  }
+}
+
+@keyframes blobDrift2 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-80px, -55px);
+  }
+}
+
+@keyframes blobDrift3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-45px, 65px) scale(1.18);
+  }
+}
+
+@keyframes langFlip {
+  0% {
+    transform: rotateX(85deg);
+    opacity: 0;
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+/* Hover states from the design export (style-hover attributes). */
+
+.hovDark:hover {
+  background: #2a2a27 !important;
+}
+
+.hovGhost:hover {
+  background: #efefeb !important;
+}
+
+.hovBgSoft:hover {
+  background: #f7f7f5 !important;
+}
+
+.hovRow:hover {
+  background: #fafaf8 !important;
+}
+
+.hovBorder:hover {
+  border-color: #b9b9b2 !important;
+  color: #111110 !important;
+}
+
+.hovBorderDark:hover {
+  border-color: #111110 !important;
+}
+
+.hovFg:hover {
+  color: #111110 !important;
+}
+
+.hovRed:hover {
+  color: #dc2626 !important;
+}
+
+.hovUnderline:hover {
+  text-decoration: underline !important;
+}
+
+.hovHangup:hover {
+  background: #c21f1f !important;
+}
+
+.inputFocus:focus {
+  border-color: #b9b9b2 !important;
+  background: #ffffff !important;
+}
+
+.otpFocus:focus {
+  border-color: #4a6cf7 !important;
+}
+
+/* Landing (Home) screen additions. */
+
+@keyframes wordIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.18em);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes packetMove {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 8px);
+    opacity: 0;
+  }
+}
+
+.hovNavLink:hover {
+  color: #111110 !important;
+  text-decoration: none !important;
+}
+
+.hovOutline:hover {
+  background: rgba(17, 17, 16, 0.05) !important;
+  text-decoration: none !important;
+  color: #111110 !important;
+}
+
+/* Hero particle field: ambient only, hidden where it would sit under text. */
+.heroParticles {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .heroParticles {
+    display: block;
+  }
+}
+
+.heroParticles canvas {
+  display: block;
+}

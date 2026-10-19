@@ -1,0 +1,107 @@
+name: talkstream
+
+services:
+  backend:
+    build:
+      context: ./backend
+    # Public mode refuses to start until every input below is real (backend/app/config.py).
+    environment:
+      APP_ENV: production
+      PUBLIC_ORIGIN: ${TALKSTREAM_PUBLIC_ORIGIN:?set the public HTTPS origin}
+      CORS_ORIGINS: ${TALKSTREAM_PUBLIC_ORIGIN}
+      ADMIN_EMAILS: ${TALKSTREAM_ADMIN_EMAILS:?set at least one administrator email}
+      RESEND_FROM: ${TALKSTREAM_RESEND_FROM:?set a sender on a Resend-verified domain}
+      RUNTIME_PROFILE: ${TALKSTREAM_RUNTIME_PROFILE:-limited_vps}
+      DATABASE_URL: sqlite+aiosqlite:////data/voiceagent.db
+      POLICY_FILE: /config/runtime-policy.json
+      RATE_CARD_FILE: /config/rate-card.json
+      RECOVERY_JOURNAL_FILE: /recovery/deletion-journal.jsonl
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      SARVAM_API_KEY_FILE: /run/secrets/sarvam_api_key
+      EXA_API_KEY_FILE: /run/secrets/exa_api_key
+      RESEND_API_KEY_FILE: /run/secrets/resend_api_key
+      CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/credential_encryption_key
+      BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/backup_encryption_key
+      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      KNOWLEDGE_RAG_ENABLED: ${KNOWLEDGE_RAG_ENABLED:-false}
+      QDRANT_URL: http://qdrant:6333
+    secrets:
+      - jwt_secret
+      - sarvam_api_key
+      - exa_api_key
+      - resend_api_key
+      - credential_encryption_key
+      - backup_encryption_key
+      - openai_api_key
+    volumes:
+      - app_data:/data
+      - ./deploy/config:/config:ro
+      # The deletion journal must live outside database backups (deploy/backup.md).
+      - ${TALKSTREAM_RECOVERY_DIR:?mount an owner-controlled directory outside backups}:/recovery
+    networks:
+      - edge
+      - internal
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${TALKSTREAM_HTTP_PORT:-8080}:80"
+    networks:
+      - edge
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4-unprivileged
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - internal
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 6
+
+networks:
+  edge:
+  internal:
+    internal: true
+
+volumes:
+  app_data:
+  qdrant_data:
+
+# One file per secret under deploy/secrets/ (ignored by git); see .env.example.
+secrets:
+  jwt_secret:
+    file: ./deploy/secrets/jwt_secret
+  sarvam_api_key:
+    file: ./deploy/secrets/sarvam_api_key
+  exa_api_key:
+    file: ./deploy/secrets/exa_api_key
+  resend_api_key:
+    file: ./deploy/secrets/resend_api_key
+  credential_encryption_key:
+    file: ./deploy/secrets/credential_encryption_key
+  backup_encryption_key:
+    file: ./deploy/secrets/backup_encryption_key
+  openai_api_key:
+    file: ${TALKSTREAM_OPENAI_API_KEY_FILE:-./deploy/secrets/openai_api_key.empty}

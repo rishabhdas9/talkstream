@@ -38,3 +38,26 @@ async def test_dev_login_refuses_remote_peers_even_with_forwarded_headers(api_cl
     client._transport.client = ("203.0.113.9", 4000)
     forwarded = {"X-Forwarded-For": "127.0.0.1"}
     assert (await client.post("/auth/dev-login", headers=forwarded)).status_code == 404
+
+
+def test_dev_login_never_wires_real_email_even_with_a_resend_key(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.auth.email import ConsoleOtpSender, ResendOtpSender
+    from app.config import Settings
+    from app.main import create_app
+
+    def sender_for(dev_login: bool):
+        settings = Settings(
+            _env_file=None,
+            jwt_secret="test-secret-that-is-at-least-thirty-two-characters",
+            database_url=f"sqlite+aiosqlite:///{tmp_path / f'{dev_login}.db'}",
+            resend_api_key="re_test_key_never_used_for_a_real_request",
+            dev_login=dev_login,
+        )
+        app = create_app(settings)
+        with TestClient(app):
+            return type(app.state.email_sender)
+
+    assert sender_for(True) is ConsoleOtpSender
+    assert sender_for(False) is ResendOtpSender

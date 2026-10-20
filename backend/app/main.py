@@ -71,7 +71,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
                 async with httpx.AsyncClient(timeout=10.0) as http_client:
                     resend_key = resolved_settings.resend_api_key
-                    if resend_key is None:
+                    # Local dev login never sends real email, even with a Resend key in .env.
+                    if resend_key is None or resolved_settings.dev_login_enabled:
                         app.state.email_sender = ConsoleOtpSender()
                     else:
                         app.state.email_sender = ResendOtpSender(

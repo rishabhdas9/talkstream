@@ -65,6 +65,7 @@ async def operations_status(
     settings, policy = state.settings, state.runtime_policy
     rates = state.cost_service.rate_card
     sarvam = settings.sarvam_api_key is not None
+    real_email = settings.resend_api_key is not None and not settings.dev_login_enabled
     components = [
         ("speech_recognition", "sarvam", settings.stt_model, sarvam),
         ("text", "sarvam", settings.llm_model, sarvam),
@@ -72,9 +73,9 @@ async def operations_status(
         ("web_search", "exa", "fast", settings.exa_api_key is not None),
         (
             "email",
-            "resend" if settings.resend_api_key is not None else "console",
+            "resend" if real_email else "console",
             None,
-            settings.resend_api_key is not None,
+            real_email,
         ),
         ("knowledge", "qdrant", None, settings.knowledge_rag_enabled),
     ]

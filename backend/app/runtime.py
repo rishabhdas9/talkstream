@@ -82,3 +82,35 @@ class RuntimePolicy(BaseModel):
     @property
     def hosting_month_micro_inr(self) -> int:
         return 500_000_000 if self.profile == "owner_hosted" else 1_000_000_000
+
+
+# About ₹1 billion: a ceiling no local call reaches.
+UNLIMITED_MICRO_INR = 10**15
+
+
+class LocalUnlimitedPolicy(RuntimePolicy):
+    """Local demos only: no call length or spending caps. Spend is still recorded.
+
+    Built with model_construct because the public field bounds would reject these values.
+    """
+
+    @classmethod
+    def from_policy(cls, policy: RuntimePolicy) -> LocalUnlimitedPolicy:
+        return cls.model_construct(
+            **{
+                **policy.model_dump(),
+                "session_seconds": 86_400,  # the access token's own one-day lifetime
+                # Each call holds this up front, so it must sit well under the day ceiling.
+                "session_micro_inr": UNLIMITED_MICRO_INR // 1000,
+                "user_day_micro_inr": UNLIMITED_MICRO_INR,
+                "user_calls_per_day": 1_000_000,
+            }
+        )
+
+    @property
+    def global_day_micro_inr(self) -> int:
+        return UNLIMITED_MICRO_INR
+
+    @property
+    def variable_month_micro_inr(self) -> int:
+        return UNLIMITED_MICRO_INR

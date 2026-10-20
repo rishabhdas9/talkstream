@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production", "public", "staging"] = "development"
     dev_login: bool = False
+    # Local demos only: lifts call length, spending caps and the wallet (needs dev login).
+    local_no_limits: bool = False
     runtime_profile: Literal["owner_hosted", "limited_vps"] = "owner_hosted"
     backend_workers: int = Field(default=1, ge=1, le=1)
     live_evaluation_cap_micro_inr: int = Field(default=0, ge=0)
@@ -168,6 +170,10 @@ class Settings(BaseSettings):
     def dev_login_enabled(self) -> bool:
         # Explicit opt-in, and only where the public checks below are skipped.
         return self.dev_login and self.app_env in {"development", "test"}
+
+    @property
+    def no_limits_enabled(self) -> bool:
+        return self.local_no_limits and self.dev_login_enabled
 
     @model_validator(mode="after")
     def public_configuration_is_explicit(self) -> Settings:

@@ -240,3 +240,56 @@ async def test_admission_includes_whole_second_recognition_rounding(admission):
         await admission.admit(
             "user", "session", access_expires_at=admission.clock.now + timedelta(milliseconds=1001)
         )
+
+
+async def test_local_no_limits_admits_long_calls_past_spent_caps(database):
+    from app.runtime import LocalUnlimitedPolicy
+
+    clock = Clock()
+    base = RuntimePolicy()
+    policy = LocalUnlimitedPolicy.from_policy(base)
+    rates = RateCard(
+        version="fixture-v1",
+        captured_at=clock.now,
+        valid_until=clock.now + timedelta(days=30),
+        source="https://example.com/fixture",
+        currency="INR",
+        fx_micro_inr=1_000_000,
+        qualified=True,
+        taxes_and_fees=PriceAdjustment(numerator=1, denominator=1, note="Synthetic test only"),
+        unit_prices={
+            "sarvam": {
+                "saaras:v3": {"audio_ms": UnitPrice(amount_micros=1_000_000, per_units=120_000)}
+            }
+        },
+    )
+    costs = CostService(database, clock, policy, rates, user_day_limit=False)
+    admission = CallAdmission(
+        database, clock, policy, costs, stt_provider="sarvam", stt_model="saaras:v3"
+    )
+    # The normal ₹30 day is already used up.
+    async with database.engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO cost_periods(kind,owner,period,spent_micro_inr) "
+                "VALUES ('global_day','*','2026-10-31',:spent)"
+            ),
+            {"spent": base.global_day_micro_inr},
+        )
+    lease = await admission.admit("user", "long-call")
+    assert lease.expires_at - clock.now == timedelta(days=1)
+    # Public limits are untouched by the local copy.
+    assert base.session_seconds == 120 and base.global_day_micro_inr == 30_000_000
+
+
+def test_no_limits_needs_dev_login(tmp_path):
+    from app.config import Settings
+    from app.main import create_app
+    from app.runtime import LocalUnlimitedPolicy
+
+    def policy(**flags):
+        settings = Settings(_env_file=None, local_no_limits=True, **flags)
+        return create_app(settings).state.runtime_policy
+
+    assert isinstance(policy(dev_login=True), LocalUnlimitedPolicy)
+    assert not isinstance(policy(dev_login=False), LocalUnlimitedPolicy)

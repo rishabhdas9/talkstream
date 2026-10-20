@@ -21,7 +21,7 @@ from app.migrations import apply_migrations
 from app.operations.router import router as operations_router
 from app.policy.models import PolicyDocument
 from app.retention import purge_expired, purge_periodically
-from app.runtime import RuntimePolicy, SystemClock
+from app.runtime import LocalUnlimitedPolicy, RuntimePolicy, SystemClock
 from app.voice.admission import CallAdmission
 from app.voice.lifecycle import database_owner, recover_abandoned_sessions
 from app.voice.providers.factory import RECOGNITION
@@ -42,6 +42,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     if policy.profile != resolved_settings.runtime_profile:
         raise ValueError("Runtime policy profile does not match selected deployment profile")
+    if resolved_settings.no_limits_enabled:
+        policy = LocalUnlimitedPolicy.from_policy(policy)
     rates = (
         RateCard.model_validate_json(resolved_settings.rate_card_file.read_text())
         if resolved_settings.rate_card_file is not None
@@ -53,7 +55,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     wallet_service = WalletService(
         database,
-        daily_allowance_paise=resolved_settings.daily_allowance_paise,
+        # ₹1,00,000 a day locally, so the mock wallet never ends a call.
+        daily_allowance_paise=10_000_000
+        if resolved_settings.no_limits_enabled
+        else resolved_settings.daily_allowance_paise,
         daily_topups=resolved_settings.daily_topups,
     )
     addon_registry = build_addon_registry(resolved_settings, database)
